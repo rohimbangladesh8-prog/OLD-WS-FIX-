@@ -28,7 +28,6 @@ def get_gmail_service():
     token_path = 'token.json'
     client_secret_file = 'credentials.json'
 
-    # সার্ভারে রান করার সময় লোকাল ব্রাউজার পপ-আপ এড়ানোর ব্যবস্থা
     if os.path.exists(token_path):
         creds = Credentials.from_authorized_user_file(token_path, SCOPES)
     
@@ -36,7 +35,6 @@ def get_gmail_service():
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            # লোকাল পিসিতে একবার অথোরাইজ করে token.json ফাইলটি জেনারেট করে সেটি গিটহাবে আপলোড করে দিলে সার্ভারে আর ব্রাউজার খুঁজবে না
             flow = InstalledAppFlow.from_client_secrets_file(client_secret_file, SCOPES)
             creds = flow.run_local_server(port=0, open_browser=False)
             
@@ -70,9 +68,14 @@ async def handle_message_input(update: Update, context: ContextTypes.DEFAULT_TYP
     text = update.message.text
     if text.startswith("Compose email"):
         try:
+            # সঠিকভাবে স্প্লিট করার নিয়ম (Target এবং Message আলাদা করা)
             parts = text.split(" ", 2)
-            recipient_phone_or_id = parts[1]
-            message_body = parts[2]
+            if len(parts) < 3:
+                await update.message.reply_text("দয়া করে সঠিক ফরম্যাটে মেসেজ লিখুন।")
+                return
+                
+            recipient_phone_or_id = parts[1] # যেমন: +249113244447
+            message_body = parts[2]          # আপনার মূল মেসেজ
             
             recipient_email = "support@support.whatsapp.com"
             sender_email = "givuvuvuvjvivj636@gmail.com"
@@ -114,11 +117,12 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     data = user_drafts[chat_id]
     recipient_email = data["recipient_email"]
-    message_body = f"Target: {data['display_target']}\n\n{data['message_body']}"
+    # জিমেইলে যে বডি পাঠানো হবে
+    email_body = f"Target: {data['display_target']}\n\n{data['message_body']}"
 
     try:
         service = get_gmail_service()
-        send_email(service, recipient_email, message_body)
+        send_email(service, recipient_email, email_body)
     except Exception as e:
         await query.edit_message_text(f"ইমেইল পাঠাতে সমস্যা হয়েছে: {str(e)}")
         return
@@ -127,6 +131,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"✉️ ইমেইল সফলভাবে পাঠানো হয়েছে!\n⏳ রিপ্লাইয়ের জন্য অপেক্ষা করা হচ্ছে... (35s)"
     )
 
+    # ৩০ থেকে ৩৫ সেকেন্ডের লাইভ কাউন্টডাউন এবং রিপ্লাই চেক লুপ
     for remaining in range(35, 0, -1):
         await asyncio.sleep(1)
         
