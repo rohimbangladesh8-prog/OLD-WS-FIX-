@@ -26,17 +26,20 @@ user_drafts = {}
 def get_gmail_service():
     creds = None
     token_path = 'token.json'
-    # একদম সহজ এবং ফিক্সড ফাইলের নাম
     client_secret_file = 'credentials.json'
 
+    # সার্ভারে রান করার সময় লোকাল ব্রাউজার পপ-আপ এড়ানোর ব্যবস্থা
     if os.path.exists(token_path):
         creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+    
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
+            # লোকাল পিসিতে একবার অথোরাইজ করে token.json ফাইলটি জেনারেট করে সেটি গিটহাবে আপলোড করে দিলে সার্ভারে আর ব্রাউজার খুঁজবে না
             flow = InstalledAppFlow.from_client_secrets_file(client_secret_file, SCOPES)
-            creds = flow.run_local_server(port=0)
+            creds = flow.run_local_server(port=0, open_browser=False)
+            
         with open(token_path, 'w') as token:
             token.write(creds.to_json())
             
@@ -63,16 +66,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "**Compose email +249113244447 আপনার মেসেজ এখানে লিখুন**"
     )
 
-# ইউজার টেক্সট ইনপুট হ্যান্ডেল করার ফাংশন
 async def handle_message_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     if text.startswith("Compose email"):
         try:
             parts = text.split(" ", 2)
-            recipient_phone_or_id = parts[1] # যেমন: +249113244447
+            recipient_phone_or_id = parts[1]
             message_body = parts[2]
             
-            # রিকোয়ারমেন্ট অনুযায়ী ফিক্সড রিসিভার ও সেন্ডার
             recipient_email = "support@support.whatsapp.com"
             sender_email = "givuvuvuvjvivj636@gmail.com"
             subject_text = "WhatsApp Support 1138573745272888"
@@ -83,7 +84,6 @@ async def handle_message_input(update: Update, context: ContextTypes.DEFAULT_TYP
                 "message_body": message_body
             }
 
-            # "মেসেজ সেন্ড করুন" বাটন তৈরি
             keyboard = [[InlineKeyboardButton("মেসেজ সেন্ড করুন", callback_data="send_mail_btn")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -103,7 +103,6 @@ async def handle_message_input(update: Update, context: ContextTypes.DEFAULT_TYP
     else:
         await update.message.reply_text("অনুগ্রহ করে 'Compose email +249113244447 <message>' ফরম্যাটে মেসেজ লিখুন।")
 
-# বাটন ক্লিক করার পর ইমেইল পাঠানো এবং ৩০-৩৫ সেকেন্ড টাইমার শো করার লজিক
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -128,7 +127,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"✉️ ইমেইল সফলভাবে পাঠানো হয়েছে!\n⏳ রিপ্লাইয়ের জন্য অপেক্ষা করা হচ্ছে... (35s)"
     )
 
-    # ৩০ থেকে ৩৫ সেকেন্ডের লাইভ কাউন্টডাউন এবং রিপ্লাই চেক লুপ
     for remaining in range(35, 0, -1):
         await asyncio.sleep(1)
         
@@ -155,7 +153,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception:
                 pass
 
-    # যদি নির্দিষ্ট সময়ে রিপ্লাই না আসে
     try:
         await context.bot.edit_message_text(
             chat_id=chat_id,
